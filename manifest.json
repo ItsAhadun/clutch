@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Fast Insta Switcher",
+  "version": "1.0.0",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "browsingData",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.instagram.com/*"
+  ],
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "intro.js"
+      ]
+    }
+  ],
+  "commands": {
+    "toggle-account": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Switch to the next Instagram account"
+    }
+  },
+  "description": "Switch Instagram accounts with one shortcut."
+}

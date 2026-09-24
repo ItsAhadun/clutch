@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #17171b; --surface: #222228; --surface-hover: #2c2c34; --border: #33333c;
+    --text: #f2f2f5; --muted: #9a9aa6; --accent: #e8458f; --accent-text: #ffffff;
+    --warn: #ff8a80; --warn-bg: #3a1d1d; --focus: #8f98ff;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; width: 320px; background: var(--bg); color: var(--text);
+         font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { padding: 14px; display: grid; gap: 14px; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; }
+  h1 { margin: 0; font-size: 15px; font-weight: 650; }
+  #shortcut { font: 11px ui-monospace, monospace; color: var(--muted); background: none; cursor: pointer;
+              border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+  #shortcut:hover { color: var(--text); border-color: var(--muted); }
+
+  /* Account cards */
+  #list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .card { display: flex; align-items: center; border-radius: 10px; background: var(--surface);
+          border: 1px solid transparent; }
+  .card:hover { background: var(--surface-hover); }
+  .card.active { border-color: var(--accent); background: var(--bg); }
+  .main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+          background: none; border: 0; border-radius: 10px; text-align: left; cursor: pointer; }
+  .active .main { cursor: default; }
+  .avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+            color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .5px; }
+  .dead .avatar { background: #cc0000 !important; } /* matches the "!" badge */
+  .text { min-width: 0; display: grid; }
+  .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status { font-size: 12px; color: var(--muted); }
+  .status:empty { display: none; }
+  .active .status { color: var(--accent); font-weight: 600; }
+  .dead .status { color: var(--warn); }
+  .rename-input { width: 100%; padding: 3px 6px; border: 1px solid var(--focus); border-radius: 6px;
+                  background: var(--bg); font-weight: 600; }
+
+  .actions { display: flex; gap: 2px; padding-right: 6px; opacity: 0; transition: opacity .12s; }
+  .card:hover .actions, .card:focus-within .actions, .actions:has(.confirm) { opacity: 1; }
+  .icon { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 7px;
+          background: none; color: var(--muted); cursor: pointer; }
+  .icon:hover { background: var(--border); color: var(--text); }
+  .icon svg { width: 15px; height: 15px; }
+  .icon.confirm { width: auto; padding: 0 8px; background: #cc0000; color: #fff; font-size: 12px; font-weight: 600; }
+
+  .empty { margin: 0; padding: 16px; border: 1px dashed var(--border); border-radius: 10px;
+           color: var(--muted); text-align: center; }
+  .empty b { display: block; color: var(--text); margin-bottom: 2px; }
+
+  /* Actions */
+  .save { display: flex; gap: 6px; }
+  .save input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border);
+                border-radius: 8px; background: var(--bg); }
+  .btn { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+         font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--surface-hover); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.wide { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn svg { width: 14px; height: 14px; }
+  .hint { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+
+  #err:empty { display: none; }
+  #err { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 12px; }
+
+  /* Settings */
+  details { border-top: 1px solid var(--border); padding-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 600; list-style: none;
+            display: flex; align-items: center; gap: 6px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "›"; font-size: 14px; transition: transform .12s; }
+  details[open] summary::before { transform: rotate(90deg); }
+  .settings { display: grid; gap: 10px; margin-top: 10px; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+  .toggle small { display: block; color: var(--muted); font-size: 11px; }
+  .toggle input { appearance: none; flex: none; width: 32px; height: 18px; border-radius: 9px; margin: 0;
+                  background: var(--border); position: relative; cursor: pointer; transition: background .12s; }
+  .toggle input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+                         border-radius: 50%; background: #fff; transition: transform .12s; }
+  .toggle input:checked { background: var(--accent); }
+  .toggle input:checked::after { transform: translateX(14px); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Fast Insta Switcher</h1>
+    <button id="shortcut" title="Change shortcut"></button>
+  </header>
+
+  <ul id="list" aria-label="Saved accounts"></ul>
+  <p class="empty" id="empty"><b>No saved accounts</b>
+    Log in on Instagram, then press Save login.</p>
+
+  <p id="err" role="alert"></p>
+
+  <div class="save">
+    <input id="label" placeholder="Name (optional)" aria-label="Account name">
+    <button class="btn primary" id="capture">Save login</button>
+  </div>
+
+  <section>
+    <button class="btn wide" id="addAccount">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add another account
+    </button>
+    <p class="hint">Logs you out in this browser only. Instagram's own Log out and account switcher end saved logins.</p>
+  </section>
+
+  <details>
+    <summary>Settings</summary>
+    <div class="settings">
+      <label class="toggle"><span>Open home feed after a switch</span>
+        <input type="checkbox" id="goHome"></label>
+      <label class="toggle"><span>Clear site data on switch
+        <small>Turn on if the old account's feed sticks</small></span>
+        <input type="checkbox" id="clearStorage"></label>
+    </div>
+  </details>
+</main>
+<script type="module" src="popup.js"></script>
+</body>
+</html>
