@@ -26,22 +26,21 @@ const handlers = {
     if (!uid) throw new Error("Log in on instagram.com first.");
     const { accounts } = await getState();
     const kept = accounts[uid] && !autoLabel(uid, accounts[uid].label) && accounts[uid].label;
-    label ||= kept || await fetchUsername(uid) || `Account ${Object.keys(accounts).length + (accounts[uid] ? 0 : 1)}`;
+    label ||= kept || await fetchUsername() || `Account ${Object.keys(accounts).length + (accounts[uid] ? 0 : 1)}`;
     accounts[uid] = { label, jar, dead: false };
     const identityNames = autoIdentity(accounts, uid);
     await setState({ accounts, active: uid, ...(identityNames && { identityNames }) });
     await refreshBadge();
   },
 
-  // Retries the username for accounts whose lookup failed at save time.
+  // Retries the username lookup when the account it failed for is the one logged in now.
   async fixNames() {
     const { accounts } = await getState();
-    let changed = false;
-    for (const [id, a] of Object.entries(accounts)) {
-      const name = autoLabel(id, a.label) && await fetchUsername(id);
-      if (name) { a.label = name; changed = true; }
-    }
-    if (!changed) return;
+    const uid = liveUid(await snapshot());
+    if (!accounts[uid] || !autoLabel(uid, accounts[uid].label)) return;
+    const name = await fetchUsername();
+    if (!name) return;
+    accounts[uid].label = name;
     await setState({ accounts });
     await refreshBadge();
   },
