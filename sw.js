@@ -13,6 +13,9 @@ function locked(fn) {
   return run;
 }
 
+// Labels the extension filled in itself, which a fetched username should replace.
+const autoLabel = (id, label) => label === id || /^Account \d+$/.test(label);
+
 const handlers = {
   switch: ({ id }) => switchTo(id),
   addAccount: () => switchTo(null),
@@ -22,7 +25,7 @@ const handlers = {
     const uid = liveUid(jar);
     if (!uid) throw new Error("Log in on instagram.com first.");
     const { accounts } = await getState();
-    const kept = accounts[uid]?.label !== uid && accounts[uid]?.label;
+    const kept = accounts[uid] && !autoLabel(uid, accounts[uid].label) && accounts[uid].label;
     label ||= kept || await fetchUsername(uid) || `Account ${Object.keys(accounts).length + (accounts[uid] ? 0 : 1)}`;
     accounts[uid] = { label, jar, dead: false };
     const identityNames = autoIdentity(accounts, uid);
@@ -30,12 +33,12 @@ const handlers = {
     await refreshBadge();
   },
 
-  // Accounts saved before usernames were fetched carry their numeric id as the label.
+  // Retries the username for accounts whose lookup failed at save time.
   async fixNames() {
     const { accounts } = await getState();
     let changed = false;
     for (const [id, a] of Object.entries(accounts)) {
-      const name = a.label === id && await fetchUsername(id);
+      const name = autoLabel(id, a.label) && await fetchUsername(id);
       if (name) { a.label = name; changed = true; }
     }
     if (!changed) return;
