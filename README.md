@@ -30,7 +30,7 @@ If Instagram ends a session (password change, new IP, its own checks), the accou
 
 ## Settings
 
-- **Open home feed after a switch**: on by default. Turn it off to reload the page you're on.
+- **Open saved posts after a switch**: on by default. Turn it off to reload the page you're on.
 - **Clear site data on switch**: turn this on if the old account's feed sticks after a switch.
 
 ## Privacy

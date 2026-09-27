@@ -1,6 +1,7 @@
 import { snapshot, liveUid, writeCookie, removeCookie } from "./cookies.js";
 import { DEFAULT_IDENTITY } from "./identity.js";
 import { getState, setState } from "./store.js";
+import { fetchUsername } from "./username.js";
 
 const HOME = "https://www.instagram.com/";
 const COLORS = ["#d62976", "#4f5bd5", "#fa7e1e", "#1b9e77", "#7b3fbf", "#0a7ea4"];
@@ -25,14 +26,21 @@ export async function switchTo(id) {
     );
   }
   for (const c of live) if (identity.has(c.name)) await removeCookie(c);
-  if (id !== null) for (const c of accounts[id].jar) if (identity.has(c.name)) await writeCookie(c);
+  if (id !== null) {
+    for (const c of accounts[id].jar) if (identity.has(c.name)) await writeCookie(c);
+    // Looked up once, with the new cookies already live. Labels can be renamed, so not those.
+    accounts[id].username ??= await fetchUsername();
+  }
 
   await setState({ accounts, active: id });
   await refreshBadge();
 
   // Every IG tab, not just the active one: a stale background tab would act as the new account under the old UI.
+  // ponytail: cached username goes stale if renamed on IG; drop it from the account to re-fetch.
+  const u = accounts[id]?.username;
+  const url = u ? `${HOME}${u}/saved/all-posts/` : HOME;
   const tabs = await chrome.tabs.query({ url: "*://*.instagram.com/*" });
-  for (const t of tabs) settings.goHome ? chrome.tabs.update(t.id, { url: HOME }) : chrome.tabs.reload(t.id);
+  for (const t of tabs) settings.goHome ? chrome.tabs.update(t.id, { url }) : chrome.tabs.reload(t.id);
 }
 
 export async function toggle() {
