@@ -9,9 +9,14 @@ const ICON = {
 
 async function send(msg) {
   $("#err").textContent = "";
-  const r = await chrome.runtime.sendMessage(msg);
-  if (!r.ok) $("#err").textContent = r.error;
-  return r.ok;
+  try {
+    const r = await chrome.runtime.sendMessage(msg);
+    if (r.ok) return true;
+    $("#err").textContent = r.error;
+  } catch (e) {
+    $("#err").textContent = e.message;
+  }
+  return false;
 }
 
 function card(id, a, active) {
@@ -75,6 +80,16 @@ async function render() {
   $("#list").replaceChildren(...ids.map(id => card(id, accounts[id], id === active)));
   $("#goHome").checked = settings.goHome;
   $("#clearStorage").checked = settings.clearStorage;
+  // Video prefs live in sync: video.js is a content script and can't read the locked-down local area.
+  const { videoOff } = await chrome.storage.sync.get({ videoOff: [] });
+  for (const b of videoBoxes) b.checked = !videoOff.includes(b.dataset.video);
+}
+
+const videoBoxes = [...document.querySelectorAll("[data-video]")];
+for (const b of videoBoxes) {
+  b.onchange = () => chrome.storage.sync.set({
+    videoOff: videoBoxes.filter(x => !x.checked).map(x => x.dataset.video),
+  });
 }
 
 $("#capture").onclick = async () => {
@@ -90,11 +105,10 @@ for (const el of [$("#goHome"), $("#clearStorage")]) {
 }
 
 // Chromium has no API to set a shortcut from the extension, so send the user to the browser's page.
-chrome.commands.getAll().then(cmds => {
-  $("#shortcut").textContent = cmds.find(c => c.name === "toggle-account")?.shortcut || "Set shortcut";
-});
 $("#shortcut").onclick = () => chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 
 chrome.storage.onChanged.addListener(render);
 render();
 send({ type: "fixNames" });
+$("#shortcut").textContent =
+  (await chrome.commands.getAll()).find(c => c.name === "toggle-account")?.shortcut || "Set shortcut";

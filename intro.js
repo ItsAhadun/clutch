@@ -3,11 +3,9 @@
   if (window.__instaSwitcherIntro) return;
   window.__instaSwitcherIntro = true;
 
-  const { introSeen } = await chrome.storage.local.get({ introSeen: false });
-  if (introSeen) return;
-  await chrome.storage.local.set({ introSeen: true });
-
-  const keys = (await chrome.runtime.sendMessage({ type: "shortcut" }))?.result;
+  const intro = (await chrome.runtime.sendMessage({ type: "intro" }))?.result;
+  if (!intro) return;
+  const { keys } = intro;
 
   const host = document.createElement("div");
   const root = host.attachShadow({ mode: "closed" });

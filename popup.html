@@ -87,6 +87,9 @@
                          border-radius: 50%; background: #fff; transition: transform .12s; }
   .toggle input:checked { background: var(--accent); }
   .toggle input:checked::after { transform: translateX(14px); }
+  .toggle kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+  .group { margin: 6px 0 0; font-size: 11px; font-weight: 600; color: var(--muted);
+           text-transform: uppercase; letter-spacing: .5px; }
 </style>
 </head>
 <body>
@@ -123,6 +126,19 @@
       <label class="toggle"><span>Clear site data on switch
         <small>Turn on if the old account's feed sticks</small></span>
         <input type="checkbox" id="clearStorage"></label>
+
+      <h2 class="group">Video player</h2>
+      <label class="toggle"><span>Seek bar</span><input type="checkbox" data-video="seek"></label>
+      <label class="toggle"><span>Volume slider</span><input type="checkbox" data-video="volume"></label>
+      <label class="toggle"><span>Playback speed</span><input type="checkbox" data-video="speed"></label>
+      <label class="toggle"><span>Fullscreen button</span><input type="checkbox" data-video="fullscreen"></label>
+      <label class="toggle"><span>Auto-scroll Reels
+        <small>Go to the next Reel when one ends</small></span>
+        <input type="checkbox" data-video="autoscroll"></label>
+      <label class="toggle"><span>Feature menu on <kbd>?</kbd>
+        <small>Lists everything the extension does</small></span>
+        <input type="checkbox" data-video="menu"></label>
+      <label class="toggle"><span>Corner <kbd>?</kbd> button</span><input type="checkbox" data-video="corner"></label>
     </div>
   </details>
 </main>

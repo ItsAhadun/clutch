@@ -4,6 +4,10 @@ import { switchTo, toggle, syncLive, refreshBadge } from "./src/switch.js";
 import { autoIdentity } from "./src/identity.js";
 import { fetchUsername } from "./src/username.js";
 
+// Saved jars are live session tokens: keep storage.local out of reach of content scripts
+// (it's exposed to them by default). intro.js goes through the "intro" message instead.
+chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }).catch(console.error);
+
 // Every accounts/active read-modify-write runs through this queue, so the
 // onChanged sync can never interleave with a switch half-way through.
 let chain = Promise.resolve();
@@ -15,6 +19,12 @@ function locked(fn) {
 
 // Labels the extension filled in itself, which a fetched username should replace.
 const autoLabel = (id, label) => label === id || /^Account \d+$/.test(label);
+
+const shortcutKeys = async () =>
+  (await chrome.commands.getAll()).find(c => c.name === "toggle-account")?.shortcut ?? "";
+
+// The only messages content scripts may send (intro card, feature menu); the rest is popup-only.
+const TAB_MESSAGES = ["intro", "shortcut"];
 
 const handlers = {
   switch: ({ id }) => switchTo(id),
@@ -45,8 +55,15 @@ const handlers = {
     await refreshBadge();
   },
 
-  shortcut: async () =>
-    (await chrome.commands.getAll()).find(c => c.name === "toggle-account")?.shortcut ?? "",
+  // One-time setup card: null once shown, else the shortcut to print on it.
+  async intro() {
+    const { introSeen } = await chrome.storage.local.get({ introSeen: false });
+    if (introSeen) return null;
+    await chrome.storage.local.set({ introSeen: true });
+    return { keys: await shortcutKeys() };
+  },
+
+  shortcut: shortcutKeys,
 
   async rename({ id, label }) {
     const { accounts } = await getState();
@@ -64,20 +81,27 @@ const handlers = {
   },
 };
 
-chrome.commands.onCommand.addListener(cmd => {
-  if (cmd === "toggle-account") locked(toggle).catch(console.error);
+// Shortcut only fires on an Instagram tab. tab.url is only visible for hosts we have permission for.
+const onInstagram = tab => /^https?:\/\/([^/]+\.)?instagram\.com\//.test(tab?.url ?? "");
+
+chrome.commands.onCommand.addListener((cmd, tab) => {
+  if (cmd === "toggle-account" && onInstagram(tab)) locked(toggle).catch(console.error);
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
-  // Content scripts (the intro card) only ever need the shortcut; the rest is popup-only.
-  if (sender.tab && msg.type !== "shortcut") return false;
-  locked(() => handlers[msg.type](msg)).then(
-    result => respond({ ok: true, result }),
-    e => respond({ ok: false, error: e.message }),
-  );
+  if (sender.tab && !TAB_MESSAGES.includes(msg.type)) return false;
+  (async () => {
+    try {
+      respond({ ok: true, result: await locked(() => handlers[msg.type](msg)) });
+    } catch (e) {
+      respond({ ok: false, error: e.message });
+    }
+  })();
   return true;
 });
 
+// setTimeout, not chrome.alarms: alarms floor at 30s, and each cookie event keeps the worker
+// alive far longer than this 2s debounce.
 let timer;
 chrome.cookies.onChanged.addListener(({ cookie }) => {
   if (!cookie.domain.endsWith(IG_DOMAIN)) return;
@@ -89,8 +113,8 @@ chrome.cookies.onChanged.addListener(({ cookie }) => {
 chrome.runtime.onStartup.addListener(refreshBadge);
 chrome.runtime.onInstalled.addListener(refreshBadge);
 
-// Manifest content scripts only reach pages loaded after install, so already-open IG tabs get the intro here.
+// Manifest content scripts only reach pages loaded after install, so already-open IG tabs get them here.
 chrome.runtime.onInstalled.addListener(async () => {
   for (const t of await chrome.tabs.query({ url: "https://www.instagram.com/*" }))
-    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["intro.js"] }).catch(() => {});
+    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["intro.js", "video.js"] }).catch(() => {});
 });
