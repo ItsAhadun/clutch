@@ -111,12 +111,23 @@
     if (cur && !cur.isConnected) hide();
     if (!cur) return (looping = false);
     const r = cur.getBoundingClientRect(), d = cur.duration;
-    Object.assign(bar.style, { left: `${r.left}px`, top: `${Math.min(r.bottom, innerHeight)}px`, width: `${r.width}px` });
+    Object.assign(bar.style, { left: `${r.left}px`, top: `${barBottom(r)}px`, width: `${r.width}px` });
     if (!dragging) seek.value = isFinite(d) && d ? cur.currentTime / d * 1000 : 0;
     timeEl.textContent = `${time(cur.currentTime)} / ${time(d)}`;
     if (!dragging) vol.value = cur.muted ? 0 : cur.volume;
     if (+speed.value !== cur.playbackRate) speed.value = cur.playbackRate;
     requestAnimationFrame(tick);
+  }
+
+  // Stories lay the reply box and like/share buttons over the video's bottom edge; sit above them.
+  function barBottom(r) {
+    let b = Math.min(r.bottom, innerHeight);
+    if (!location.pathname.startsWith("/stories/")) return b;
+    for (const el of document.querySelectorAll("textarea, [contenteditable], button, [role=button]")) {
+      const e = el.getBoundingClientRect(), cx = (e.left + e.right) / 2;
+      if (e.height && cx > r.left && cx < r.right && e.top > r.bottom - 120 && e.top - 8 < b) b = e.top - 8;
+    }
+    return b;
   }
 
   const under = (v, x, y) => { const r = v.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
