@@ -33,13 +33,16 @@ If Instagram ends a session (password change, new IP, its own checks), the accou
 - **Open saved posts after a switch**: on by default. Turn it off to reload the page you're on.
 - **Clear site data on switch**: turn this on if the old account's feed sticks after a switch.
 - **Video player**: each of these can be turned off on its own.
-  - **Seek bar**, **Volume slider**, **Playback speed** (0.25× to 16×) and **Fullscreen button** show in a bar when you hover a video. In fullscreen, the browser's own controls take over.
+  - **Seek bar**, **Volume slider**, **Playback speed** (0.25× to 16×) and **Fullscreen button** show in a bar when you hover a video. In fullscreen, the browser's own controls take over. Volume and sound on/off are remembered; Chrome blocks sound until your first click or key press on the page, so a remembered unmute applies then.
+  - **Transcript button** (CC in the bar): shows and copies a Reel's text from Instagram's own auto-captions. Only some Reels have them.
   - **Auto-scroll Reels**: on instagram.com/reels, moves to the next Reel when one ends.
+  - **Keyboard shortcuts**: `Space` plays/pauses, `M` mutes/unmutes, `F` toggles fullscreen, `←` / `→` go back or forward 5 seconds. In stories and the post viewer (opened from Saved, a profile or Explore) plain arrows stay Instagram's for changing story or post, and `Shift+←` / `Shift+→` seek instead. `Space` only plays/pauses on Reels, posts, stories and in fullscreen; on the feed, profiles and Explore it scrolls the page as usual. They act on the fullscreen video, else the one under the pointer, else the one playing.
+  - **Keep playing in background**: videos don't pause when you switch to another tab.
   - **Feature menu on ?** and **Corner ? button**: open a list of everything the extension does.
 
 ## Privacy
 
-Your logins stay in your browser's local extension storage and never leave your computer. Only the video player on/off settings sync with your browser account. The extension only talks to instagram.com, and only to look up usernames. Anyone who can read your browser profile folder can read the saved logins, same as your normal cookies.
+Your logins stay in your browser's local extension storage and never leave your computer. Only the video player on/off settings sync with your browser account. The extension only talks to Instagram, to look up usernames and, when you press CC, a video's captions (from instagram.com and its caption file server). Anyone who can read your browser profile folder can read the saved logins, same as your normal cookies.
 
 ## Development
 

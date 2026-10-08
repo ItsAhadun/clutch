@@ -115,6 +115,8 @@ chrome.runtime.onInstalled.addListener(refreshBadge);
 
 // Manifest content scripts only reach pages loaded after install, so already-open IG tabs get them here.
 chrome.runtime.onInstalled.addListener(async () => {
-  for (const t of await chrome.tabs.query({ url: "https://www.instagram.com/*" }))
+  for (const t of await chrome.tabs.query({ url: "https://www.instagram.com/*" })) {
     chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["intro.js", "video.js"] }).catch(() => {});
+    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["keep-playing.js"], world: "MAIN" }).catch(() => {});
+  }
 });
