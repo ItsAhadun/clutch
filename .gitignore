@@ -1,2 +1,6 @@
 *.zip
 CLAUDE.local.md
+.claude/
+brag-output/
+_metadata/
+vendor/

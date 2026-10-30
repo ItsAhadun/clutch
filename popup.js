@@ -1,5 +1,5 @@
 import { getState } from "./src/store.js";
-import { initials, accountColor } from "./src/switch.js";
+import { initials, accountColor, nextId } from "./src/switch.js";
 
 const $ = s => document.querySelector(s);
 const ICON = {
@@ -19,24 +19,23 @@ async function send(msg) {
   return false;
 }
 
-function card(id, a, active) {
+function card(id, a, active, next) {
   const li = document.createElement("li");
   li.className = "card" + (active ? " active" : "") + (a.dead ? " dead" : "");
   li.innerHTML = `
-    <button class="main"><span class="avatar"></span>
-      <span class="text"><span class="name"></span><span class="status"></span></span></button>
+    <button class="main"><span class="badge"></span><span class="handle"></span><span class="tag"></span></button>
     <span class="actions">
       <button class="icon edit" aria-label="Rename">${ICON.edit}</button>
       <button class="icon del" aria-label="Delete">${ICON.trash}</button>
     </span>`;
 
-  const avatar = li.querySelector(".avatar");
+  const avatar = li.querySelector(".badge");
   avatar.textContent = a.dead ? "!" : initials(a.label);
   avatar.style.background = accountColor(id);
-  const name = li.querySelector(".name");
-  name.textContent = a.label;
-  li.querySelector(".status").textContent =
-    a.dead ? "Log in and save again" : active ? "Active" : "";
+  li.querySelector(".handle").textContent = a.label;
+  const tag = li.querySelector(".tag");
+  tag.textContent = a.dead ? "log in again" : active ? "now" : next ? "next" : "";
+  if (a.dead) tag.title = "Log in to this account on Instagram, then press Save login";
 
   const main = li.querySelector(".main");
   if (active) main.setAttribute("aria-current", "true");
@@ -77,7 +76,8 @@ async function render() {
   const { accounts, active, settings } = await getState();
   const ids = Object.keys(accounts);
   $("#empty").hidden = ids.length > 0;
-  $("#list").replaceChildren(...ids.map(id => card(id, accounts[id], id === active)));
+  const next = nextId(accounts, active);
+  $("#list").replaceChildren(...ids.map(id => card(id, accounts[id], id === active, id === next)));
   $("#goHome").checked = settings.goHome;
   $("#clearStorage").checked = settings.clearStorage;
   // Video prefs live in sync: video.js is a content script and can't read the locked-down local area.
@@ -97,7 +97,6 @@ $("#capture").onclick = async () => {
 };
 $("#label").onkeydown = e => { if (e.key === "Enter") $("#capture").click(); };
 $("#addAccount").onclick = () => send({ type: "addAccount" });
-
 for (const el of [$("#goHome"), $("#clearStorage")]) {
   el.onchange = () => chrome.storage.local.set({
     settings: { goHome: $("#goHome").checked, clearStorage: $("#clearStorage").checked },
@@ -110,5 +109,9 @@ $("#shortcut").onclick = () => chrome.tabs.create({ url: "chrome://extensions/sh
 chrome.storage.onChanged.addListener(render);
 render();
 send({ type: "fixNames" });
-$("#shortcut").textContent =
-  (await chrome.commands.getAll()).find(c => c.name === "toggle-account")?.shortcut || "Set shortcut";
+// "Alt+Shift+S" on Windows and Linux, "⇧⌥S" on macOS: one key cap each.
+const keys = (await chrome.commands.getAll()).find(c => c.name === "toggle-account")?.shortcut;
+$("#caps").replaceChildren(...(keys ? (keys.includes("+") ? keys.split("+") : [...keys]) : [])
+  .map(k => Object.assign(document.createElement("kbd"), { textContent: k })));
+$("#keysHint").textContent = keys ? "Next account, on any Instagram tab" : "No shortcut to switch accounts yet";
+$("#shortcut").textContent = keys ? "Change" : "Set one";

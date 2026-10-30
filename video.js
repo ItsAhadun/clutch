@@ -1,8 +1,8 @@
 // Video controls, Reels auto-scroll and the ? feature menu on instagram.com.
 // Injected by the manifest and, for tabs open at install, by sw.js.
 (() => {
-  if (window.__instaSwitcherVideo) return;
-  window.__instaSwitcherVideo = true;
+  if (window.__clutchVideo) return;
+  window.__clutchVideo = true;
 
   // Features switched off in the popup; everything is on by default. storage.sync, not local:
   // sw.js locks local to trusted contexts because it holds session tokens. These are harmless prefs.
@@ -14,14 +14,16 @@
     ["volume", "Volume", "Set the volume from the slider on the player. Volume and sound on/off are remembered."],
     ["speed", "Playback speed", "Pick anything from 0.25× to 16×."],
     ["fullscreen", "Fullscreen", "Watch any video fullscreen, Reels included."],
-    ["transcript", "Transcript", "Press CC on a Reel to copy its text from Instagram's captions."],
+    ["transcript", "Transcript", "Press CC on a Reel to copy its text: Instagram's captions if it has them, else transcribed on this computer."],
     ["autoscroll", "Auto-scroll Reels", "Moves to the next Reel when one ends."],
     ["keys", "Keyboard shortcuts", "<kbd>Space</kbd> play/pause, <kbd>M</kbd> mute, <kbd>F</kbd> fullscreen, " +
       "<kbd>←</kbd> <kbd>→</kbd> back or forward 5 seconds (<kbd>Shift</kbd> with them in stories and posts, " +
-      "where the arrows change story or post)."],
+      "where the arrows change story or post), <kbd>↑</kbd> <kbd>↓</kbd> volume in fullscreen."],
+    ["search", "Search", "<kbd>Ctrl</kbd>+<kbd>F</kbd> opens Explore with the search box ready to type in."],
     ["background", "Keep playing in background", "Videos keep playing when you switch to another tab."],
-    ["menu", "Feature menu", "Press ? on Instagram to open this list."],
-    ["corner", "Corner button", "The ? button in the corner that opens this list."],
+    ["story", "Your story", "The <b>Your story</b> button at the start of the stories bar posts a photo or video to your story, with text and music."],
+    ["menu", "Feature menu", "Press <kbd>?</kbd> on Instagram to open this list."],
+    ["corner", "Corner button", "The <kbd>?</kbd> button in the corner that opens this list."],
   ];
   const BAR = ["seek", "volume", "speed", "fullscreen", "transcript"];
   const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3, 4, 8, 16]; // Chromium plays 0.0625–16
@@ -58,25 +60,44 @@
       :host([data-off~="seek"]) .seek, :host([data-off~="volume"]) .volume, :host([data-off~="speed"]) .speed,
       :host([data-off~="fullscreen"]) .fs, :host([data-off~="transcript"]) .cc { display: none; }
 
-      .corner { position: fixed; z-index: 2147483646; right: 16px; bottom: 88px; width: 30px; height: 30px;
-                border-radius: 50%; border: 1px solid #33333c; background: #17171b; font-weight: 700; opacity: .7; }
+      /* Corner button, feature menu and transcript panel: Keycap design system, see DESIGN.md.
+         The player bar above keeps its own look. */
+      .corner, .menu { --bg: #1a1b1e; --well: #141517; --cap: #2a2b30; --cap-edge: #0e0f11; --line: #2e2f35;
+                       --text: #ecebe8; --muted: #8d8c92; --pink: #ff4f9a; --pink-edge: #b8306c; --on-pink: #1a0b12;
+                       --mono: ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--text); }
+      .corner:focus-visible, .menu :focus-visible { outline-color: var(--text); }
+      .corner { position: fixed; z-index: 2147483646; right: 16px; bottom: 88px; width: 30px; height: 30px; padding: 0 0 2px;
+                border: 0; border-radius: 7px; background: var(--cap); box-shadow: inset 0 -3px 0 var(--cap-edge), 0 2px 8px rgba(0,0,0,.35);
+                font: 600 13px var(--mono); opacity: .75; transition: opacity .1s, transform .06s, box-shadow .06s; }
       .corner:hover { opacity: 1; }
+      .corner:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 var(--cap-edge); }
       .menu { position: fixed; z-index: 2147483647; top: 50%; left: 50%; transform: translate(-50%, -50%);
               width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 16px;
-              border-radius: 12px; background: #17171b; border: 1px solid #33333c; box-shadow: 0 12px 40px rgba(0,0,0,.5);
-              font-size: 13px; line-height: 1.5; }
-      h2 { margin: 0 0 10px; font-size: 15px; }
-      ul { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 8px; }
+              border-radius: 10px; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.5);
+              font-size: 13px; line-height: 1.5; animation: rise .16s ease-out; }
+      @keyframes rise { from { opacity: 0; translate: 0 6px; } }
+      @media (prefers-reduced-motion: reduce) { .menu { animation: none; } .corner, .key { transition: none; } }
+      h2 { margin: 0 0 12px; font-size: 15px; font-weight: 650; }
+      ul { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 10px; }
       li { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; }
-      li small { grid-column: 1 / -1; color: #9a9aa6; }
-      .state { font-size: 11px; font-weight: 600; color: #9a9aa6; }
-      .state.on { color: #e8458f; }
-      kbd { font: 12px ui-monospace, monospace; border: 1px solid #33333c; border-radius: 4px; padding: 0 4px; }
-      p { margin: 0 0 12px; color: #9a9aa6; font-size: 12px; }
-      .close { font-weight: 600; border: 0; border-radius: 8px; padding: 7px 14px; background: #e8458f; color: #fff; }
+      li b { font-weight: 600; }
+      li small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+      .state { font: 11px var(--mono); color: var(--muted); }
+      .state.on { color: var(--pink); }
+      kbd { font: 600 11px var(--mono); padding: 1px 5px 3px; border-radius: 5px; color: var(--text);
+            background: var(--cap); box-shadow: inset 0 -2px 0 var(--cap-edge); }
+      p { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+      .key { font-weight: 600; border: 0; border-radius: 7px; padding: 7px 14px 8px; color: var(--text);
+             background: var(--cap); box-shadow: inset 0 -3px 0 var(--cap-edge); transition: transform .06s, box-shadow .06s; }
+      .key:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 var(--cap-edge); }
+      .key.pink { background: var(--pink); color: var(--on-pink); box-shadow: inset 0 -3px 0 var(--pink-edge); }
+      .key.pink:active { box-shadow: inset 0 -1px 0 var(--pink-edge); }
       /* Off to the side so the Reel stays visible. */
       .tx { left: auto; right: 16px; transform: translateY(-50%); }
-      .tx-text { max-height: 40vh; overflow: auto; margin-bottom: 12px; user-select: text; }
+      .tx-src { font: 11px/1.5 var(--mono); }
+      .tx-bar { display: block; width: 100%; height: 6px; margin: -6px 0 14px; accent-color: var(--pink); }
+      .tx-text { max-height: 40vh; overflow: auto; margin-bottom: 14px; padding: 10px 12px; border-radius: 7px;
+                 background: var(--well); user-select: text; }
       .tx-text:empty { display: none; }
     </style>
     <div class="bar" hidden>
@@ -92,18 +113,19 @@
         <button class="cc" aria-label="Transcript" title="Transcript">CC</button>
       </div>
     </div>
-    <button class="corner" aria-label="Fast Insta Switcher features" title="Features (?)">?</button>
-    <div class="menu" role="dialog" aria-label="Fast Insta Switcher features" hidden>
-      <h2>Fast Insta Switcher</h2>
+    <button class="corner" aria-label="Clutch features" title="Features (?)">?</button>
+    <div class="menu" role="dialog" aria-label="Clutch features" hidden>
+      <h2>Clutch</h2>
       <ul></ul>
       <p>Turn features on or off in the extension popup, under Settings.</p>
-      <button class="close">Close</button>
+      <button class="key close">Close</button>
     </div>
     <div class="menu tx" role="dialog" aria-label="Transcript" hidden>
       <h2>Transcript</h2>
       <p class="tx-src" role="status"></p>
+      <progress class="tx-bar" max="1" hidden></progress>
       <div class="tx-text" tabindex="0"></div>
-      <button class="close tx-copy">Copy</button> <button class="close tx-close">Close</button>
+      <button class="key pink tx-copy">Copy</button> <button class="key tx-close">Close</button>
     </div>`;
   const $ = s => root.querySelector(s);
   const bar = $(".bar"), seek = $(".seek-range"), timeEl = $(".time"), vol = $(".volume"), speed = $(".speed");
@@ -125,7 +147,7 @@
     if (!looping) { looping = true; requestAnimationFrame(tick); }
   }
   function tick() {
-    if (cur && !cur.isConnected) hide();
+    if (cur && (!cur.isConnected || blocked(cur))) hide();
     if (!cur) return (looping = false);
     const r = cur.getBoundingClientRect(), d = cur.duration;
     Object.assign(bar.style, { left: `${r.left}px`, top: `${barBottom(r)}px`, width: `${r.width}px` });
@@ -147,10 +169,48 @@
     return b;
   }
 
+  // The bar only shows for a video in focus: anything Instagram lays over it (a post or Reel popup
+  // opened from messages, the share dialog and its dimmed backdrop, a menu, a profile hover card, the
+  // messages or search panel) hides the bar, or the bar draws on top of it. Instagram's own controls
+  // on the video sit inside the box the video fills, so they don't count. Laid over means: in a
+  // dialog the video isn't in, in another layer of the page (Instagram puts popups in their own
+  // top-level element), or with an opaque-ish background.
+  const layer = n => { while (n.parentElement && n.parentElement !== document.body) n = n.parentElement; return n; };
+  const covers = (el, v, box) => el !== host && !box.contains(el) &&
+    (el.closest('[role="dialog"]')?.contains(v) === false || layer(el) !== layer(v) || opaque(el));
+  const opaque = el => {
+    const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+    return !!c && +(c[3] ?? 1) >= 0.5;
+  };
+  function playerBox(v) {
+    const r = v.getBoundingClientRect();
+    let box = v;
+    for (let p = v.parentElement; p; box = p, p = p.parentElement) {
+      const q = p.getBoundingClientRect();
+      if (q.width && (q.left < r.left - 2 || q.top < r.top - 2 || q.right > r.right + 2 || q.bottom > r.bottom + 2)) break;
+    }
+    return box;
+  }
+  let px = 0, py = 0; // last pointer position
+  // Checks under the pointer and along the row the bar sits on.
+  function blocked(v) {
+    const r = v.getBoundingClientRect(), y = barBottom(r) - 12, box = playerBox(v);
+    return [[px, py], [r.left + 12, y], [(r.left + r.right) / 2, y], [r.right - 12, y]].some(([x, y]) => {
+      for (const el of document.elementsFromPoint(x, y)) {
+        if (el.contains(v)) return false; // reached the video; the rest is underneath
+        if (covers(el, v, box)) return true;
+      }
+      return false;
+    });
+  }
+
   const under = (v, x, y) => { const r = v.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
+  // Grid tiles (Explore, profiles, Saved) play a preview on hover but are links to the post, not players.
+  const players = () => [...document.querySelectorAll("video")].filter(v => !v.closest("a[href]"));
   document.addEventListener("pointermove", e => {
+    px = e.clientX; py = e.clientY;
     if (dragging || e.target === host) return;
-    const v = BAR.some(on) && [...document.querySelectorAll("video")].find(v => under(v, e.clientX, e.clientY));
+    const v = BAR.some(on) && players().find(v => under(v, px, py) && !blocked(v));
     if (v && v !== cur) show(v);
     else if (!v && cur) hide();
   }, { passive: true });
@@ -176,15 +236,25 @@
   // It and sound on/off are remembered across pages and reloads (storage.sync, like the settings).
   let volume = null, muted = true;
   chrome.storage.sync.get({ volume: null, muted: true }).then(s => ({ volume, muted } = s));
-  // Every sound toggle, ours or Instagram's, is a click on its audio button. The label still
-  // shows the state before the click, so the new state is the opposite.
-  document.addEventListener("click", e => {
-    const label = e.target.closest?.('button, [role="button"]')
-      ?.querySelector('svg[aria-label^="Audio is"]')?.getAttribute("aria-label");
-    if (label) chrome.storage.sync.set({ muted: muted = label !== "Audio is muted" });
-  }, true);
   document.addEventListener("play", e => {
     if (volume !== null && e.target instanceof HTMLVideoElement) e.target.volume = volume;
+  }, true);
+  // Remember sound changes however the user made them: Instagram's audio button, our bar and keys,
+  // clicking the video, or the native controls in fullscreen. Instagram also mutes videos by itself
+  // (every fresh page, every video it sets up), so only count a change on a video that has already
+  // played a moment, made during or just after a click or key press.
+  let inputAt = 0, pressed = false, saveAt;
+  addEventListener("pointerdown", () => { pressed = true; inputAt = Date.now(); }, true);
+  addEventListener("pointerup", () => { pressed = false; inputAt = Date.now(); }, true);
+  addEventListener("keydown", () => { inputAt = Date.now(); }, true);
+  document.addEventListener("volumechange", e => {
+    const v = e.target;
+    if (!(v instanceof HTMLVideoElement) || v.currentTime < 0.3) return;
+    if (!pressed && Date.now() - inputAt > 1000) return;
+    muted = v.muted || v.volume === 0;
+    if (!muted) volume = v.volume;
+    clearTimeout(saveAt); // sync allows ~2 writes/s, so save once the changes settle
+    saveAt = setTimeout(() => chrome.storage.sync.set(muted ? { muted } : { muted, volume }), 600);
   }, true);
   let toggledAt = 0;
   vol.oninput = () => {
@@ -198,11 +268,14 @@
     }
     if (!mute) for (const v of document.querySelectorAll("video")) v.volume = volume = +vol.value;
   };
-  vol.onchange = () => +vol.value && chrome.storage.sync.set({ volume }); // on release: sync allows ~2 writes/s
   // Instagram starts every page muted, and Chrome blocks sound until the first click or key press
-  // on the page, so turn the sound back on once both allow it.
+  // on the page, so turn the sound back on once both allow it. Chrome skips that wait on sites you
+  // often watch with sound (its Media Engagement Index); a new AudioContext starts "running"
+  // exactly when that applies, so it tells us before any click.
+  let soundAllowed = false;
+  try { const c = new AudioContext(); soundAllowed = c.state === "running"; c.close(); } catch {}
   function restoreSound() {
-    if (muted || !navigator.userActivation.hasBeenActive || Date.now() - toggledAt < 500) return;
+    if (muted || !(soundAllowed || navigator.userActivation.hasBeenActive) || Date.now() - toggledAt < 500) return;
     const v = onScreen(false);
     const b = v?.muted && audioButton(v);
     if (b) { toggledAt = Date.now(); b.click(); }
@@ -251,9 +324,10 @@
   }, true);
 
   // ---- Transcript ----
-  // Instagram's own auto-captions, which only some Reels have.
-  const tx = $(".tx"), txSrc = $(".tx-src"), txText = $(".tx-text"), txCopy = $(".tx-copy");
-  const captionCache = new Map(); // shortcode -> caption text, or null for none. Never the signed .srt URL: it expires.
+  // Instagram's own auto-captions when the Reel has them (only a few do), else speech-to-text on
+  // this computer in offscreen.js.
+  const tx = $(".tx"), txSrc = $(".tx-src"), txBar = $(".tx-bar"), txText = $(".tx-text"), txCopy = $(".tx-copy");
+  const transcripts = new Map(); // shortcode -> { text, source }. Never the signed file URLs: they expire.
   let run = 0; // bumped per click and on close, so a stale request can't fill the panel
 
   // Shortcode of the post page, or in the home feed the post the video sits in. Stories have none.
@@ -268,47 +342,84 @@
   const srtText = srt => srt.split(/\r?\n\s*\r?\n/).map(b => b.split(/\r?\n/))
     .map(ls => ls.slice(ls.findIndex(l => l.includes("-->")) + 1).join(" ")).join(" ").replace(/\s+/g, " ").trim();
 
-  async function captions(code) {
-    if (captionCache.has(code)) return captionCache.get(code);
+  const ask = async msg => {
+    const r = await chrome.runtime.sendMessage(msg);
+    if (!r?.ok) throw new Error(r?.error ?? "the extension didn't answer; reload the page");
+    return r.result;
+  };
+  const languages = new Intl.DisplayNames(["en"], { type: "language" });
+  // offscreen.js streams { status, progress } while it works, then { result } or { error }.
+  const speechToText = (url, status) => new Promise((resolve, reject) => {
+    const port = chrome.runtime.connect({ name: "transcribe" });
+    port.onMessage.addListener(m => {
+      if (m.status) return status(m.status, m.progress);
+      port.disconnect();
+      m.error ? reject(new Error(m.error)) : resolve(m.result);
+    });
+    port.onDisconnect.addListener(() => reject(new Error("the transcriber stopped; reload the page and try again")));
+    port.postMessage({ url });
+  });
+
+  async function transcript(code, status) {
+    if (transcripts.has(code)) return transcripts.get(code);
     // Same origin, so the login cookies go along. 936619743392459 is Instagram's web app id (see src/username.js).
     const r = await fetch(`/api/v1/media/${mediaId(code)}/info/`, { headers: { "X-IG-App-ID": "936619743392459" } });
-    if (!r.ok) throw new Error(r.status);
-    const uri = (await r.json()).items?.[0]?.video_subtitles_uri;
-    let text = null;
-    if (uri) {
-      const srt = await fetch(uri);
-      if (!srt.ok) throw new Error(srt.status);
-      text = srtText(await srt.text()) || null;
+    if (!r.ok) throw new Error(`Instagram answered ${r.status}`);
+    // ponytail: a carousel post gives its first video, which may not be the one on screen.
+    const item = (await r.json()).items?.[0];
+    const media = item?.video_versions ? item : item?.carousel_media?.find(m => m.video_versions);
+    let result;
+    if (media?.video_subtitles_uri) {
+      const srt = await fetch(media.video_subtitles_uri);
+      if (!srt.ok) throw new Error(`Instagram answered ${srt.status}`);
+      result = { text: srtText(await srt.text()), source: "Instagram captions" };
+    } else {
+      const url = media?.video_versions?.[0]?.url;
+      if (!url) throw new Error("Instagram didn't list a video file for it");
+      status("No Instagram captions, so transcribing on this computer…");
+      await ask({ type: "transcriber" }); // opens offscreen.js
+      const { text, language } = await speechToText(url, status);
+      result = { text, source: `Transcribed on this computer${language ? ` (${languages.of(language)})` : ""}` };
     }
-    captionCache.set(code, text);
-    return text;
+    transcripts.set(code, result);
+    return result;
   }
 
-  const copy = async () => {
+  // auto: the copy right after transcribing, which the browser may refuse once the click is long past.
+  const copy = async auto => {
     try { await navigator.clipboard.writeText(txText.textContent); txCopy.textContent = "Copied"; }
-    catch { txCopy.textContent = "Copy failed"; }
+    catch { if (auto !== true) txCopy.textContent = "Copy failed"; }
   };
   function closeTx() { run++; tx.hidden = true; }
 
   async function transcribe(v) {
     const id = ++run;
-    txSrc.textContent = "Looking for Instagram captions…";
     txText.textContent = "";
     txCopy.hidden = true;
     txCopy.textContent = "Copy";
+    txBar.hidden = true;
     tx.hidden = false;
     $(".tx-close").focus();
     const code = codeOf(v);
-    if (!code) return (txSrc.textContent = "Captions only work on Reels and posts, not stories.");
-    let text;
-    try { text = await captions(code); }
-    catch (e) { if (id === run) txSrc.textContent = `Couldn't get captions from Instagram (${e.message}).`; return; }
+    if (!code) return (txSrc.textContent = "Transcripts only work on Reels and posts, not stories.");
+    // A fraction fills the bar; without one the bar just shows something is happening.
+    const status = (text, fraction) => {
+      if (id !== run) return;
+      txSrc.textContent = text;
+      txBar.hidden = false;
+      fraction == null ? txBar.removeAttribute("value") : (txBar.value = fraction);
+    };
+    status("Looking for Instagram captions…");
+    let result;
+    try { result = await transcript(code, status); }
+    catch (e) { if (id === run) txSrc.textContent = `Couldn't transcribe this Reel: ${e.message}.`; return; }
+    finally { if (id === run) txBar.hidden = true; }
     if (id !== run) return;
-    if (!text) return (txSrc.textContent = "Instagram has no captions for this Reel.");
-    txSrc.textContent = "Instagram captions";
-    txText.textContent = text;
+    if (!result.text) return (txSrc.textContent = "No speech found in this Reel.");
+    txSrc.textContent = result.source;
+    txText.textContent = result.text;
     txCopy.hidden = false;
-    copy(); // still inside the click's user activation
+    copy(true);
   }
 
   $(".cc").onclick = () => cur && transcribe(cur);
@@ -319,10 +430,12 @@
   async function openMenu() {
     let keys = "";
     try { keys = (await chrome.runtime.sendMessage({ type: "shortcut" }))?.result ?? ""; } catch {} // extension reloaded
+    // One key cap per key: "Alt+Shift+S", or "⇧⌥S" on macOS.
+    const caps = keys && (keys.includes("+") ? keys.split("+") : [...keys]).map(k => `<kbd>${k}</kbd>`).join(" ");
     $("ul").innerHTML =
-      `<li><b>Switch accounts</b><span class="state on">On</span>
-         <small>${keys ? `Press <kbd>${keys}</kbd> on Instagram, or pick` : "Pick"} an account in the extension.</small></li>` +
-      FEATURES.map(([k, name, desc]) => `<li><b>${name}</b><span class="state ${on(k) ? "on" : ""}">${on(k) ? "On" : "Off"}</span>
+      `<li><b>Switch accounts</b><span class="state on">on</span>
+         <small>${caps ? `Press ${caps} on Instagram, or pick` : "Pick"} an account in the extension.</small></li>` +
+      FEATURES.map(([k, name, desc]) => `<li><b>${name}</b><span class="state ${on(k) ? "on" : ""}">${on(k) ? "on" : "off"}</span>
          <small>${desc}</small></li>`).join("");
     menu.hidden = false;
     $(".close").focus();
@@ -340,14 +453,40 @@
            Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0));
   };
   const onScreen = anyPaused => {
-    const vs = [...document.querySelectorAll("video")].filter(v => shown(v) > 0);
+    const vs = players().filter(v => shown(v) > 0);
     return vs.find(v => !v.paused) || (anyPaused ? vs.sort((a, b) => shown(b) - shown(a))[0] : null);
   };
-  const KEYS = ["f", "m", " ", "arrowleft", "arrowright"];
+  // Ctrl+F: Explore, then focus the search box. Goes through Instagram's own links so the page
+  // doesn't reload (a reload would drop this script before it could focus anything). On a wide
+  // window the box lives in the Search panel, so open that; a narrow Explore page has it built in.
+  function openSearch() {
+    if (!location.pathname.startsWith("/explore")) {
+      const a = document.querySelector('a[href="/explore/"]');
+      if (!a) return location.assign("/explore/"); // chisle: lands on Explore unfocused; no nav link means logged out anyway
+      a.click();
+    }
+    let tries = 0, opened = false;
+    const t = setInterval(() => {
+      const box = document.querySelector('input[aria-label="Search input"], input[placeholder="Search"]');
+      if (box) { box.focus(); box.select(); }
+      else if (!opened && location.pathname.startsWith("/explore")) {
+        const b = document.querySelector('svg[aria-label="Search"]')?.closest('a, button, [role="button"]');
+        if (b) { b.click(); opened = true; }
+      }
+      if (box || ++tries > 40) clearInterval(t);
+    }, 100);
+  }
+
+  const KEYS = ["f", "m", " ", "arrowleft", "arrowright", "arrowup", "arrowdown"];
   addEventListener("keydown", e => {
     if (e.key === "Escape" && (!menu.hidden || !tx.hidden)) {
       menu.hidden ? closeTx() : (menu.hidden = true);
       return e.stopPropagation(); // or Instagram closes the story or post underneath too
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f" && on("search")) {
+      openSearch();
+      e.preventDefault();
+      return e.stopPropagation();
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.composedPath()[0];
@@ -362,6 +501,8 @@
       const fs = document.fullscreenElement;
       const story = location.pathname.startsWith("/stories/");
       const viewer = story || document.querySelector('[role="dialog"]');
+      // Up/Down change Reels and scroll pages; only fullscreen claims them, for volume.
+      if ((key === "arrowup" || key === "arrowdown") && !(fs instanceof HTMLVideoElement)) return;
       // Instagram steps through stories and the post viewer (Saved, profiles, Explore) with plain
       // arrows, so leave them to it there; Shift+arrows still seek. Fullscreen hides that viewer.
       if (key.startsWith("arrow") && !e.shiftKey && !fs && viewer) return;
@@ -375,6 +516,11 @@
         // A story runs its own timer, so pause through Instagram's button or it moves on anyway.
         const b = story && igButton(v, 'svg[aria-label="Pause"], svg[aria-label="Play"]');
         b ? b.click() : v.paused ? v.play().catch(() => {}) : v.pause();
+      }
+      else if (key === "arrowup" || key === "arrowdown") {
+        const up = key === "arrowup";
+        if (v.muted && up) { const b = audioButton(v); b ? b.click() : (v.muted = false); }
+        v.volume = Math.round(Math.min(1, Math.max(0, v.volume + (up ? 0.1 : -0.1))) * 10) / 10;
       }
       else {
         v.currentTime += key === "arrowright" ? 5 : -5;
@@ -391,6 +537,7 @@
     host.dataset.off = off.join(" ");
     corner.hidden = !on("corner");
     document.documentElement.toggleAttribute("data-ifs-background", on("background")); // read by keep-playing.js
+    document.documentElement.toggleAttribute("data-ifs-story", on("story")); // read by story.js
     if (!BAR.some(on)) hide();
     if (!menu.hidden) openMenu();
   }

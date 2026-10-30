@@ -1,0 +1,35 @@
+# Publishes clutch.zip as a GitHub release whenever main gets a manifest version that has no release yet.
+# To ship: bump "version" in manifest.json and push to main.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: node check.mjs
+
+      - run: sh vendor.sh
+
+      - name: Build and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(jq -r .version manifest.json)
+          if gh release view "v$v" >/dev/null 2>&1; then
+            echo "v$v is already released; bump the version in manifest.json to ship a new one."
+            exit 0
+          fi
+          mkdir clutch
+          cp -r manifest.json *.js *.html rules.json src vendor clutch/
+          zip -qr clutch.zip clutch
+          gh release create "v$v" clutch.zip --title "$v" --target "$GITHUB_SHA" --generate-notes

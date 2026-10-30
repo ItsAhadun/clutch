@@ -35,4 +35,19 @@ assert.deepEqual(autoIdentity(accts, "2").sort(), ["ds_user_id", "onlyA", "sessi
 assert.equal(autoIdentity({ ...accts, "2": { jar: b, dead: true } }, "1"), null, "dead partner is skipped");
 assert.equal(autoIdentity({ "1": { jar: a }, "3": { jar: a } }, "1"), null, "no sessionid diff = rejected");
 
+const { nextId } = await import("./src/switch.js");
+const ring = { a: {}, b: { dead: true }, c: {} };
+assert.equal(nextId(ring, "a"), "c", "skips a dead account");
+assert.equal(nextId(ring, "c"), "a", "wraps round");
+assert.equal(nextId({ a: {} }, "a"), undefined, "no other live account");
+
+const { step } = await import("./src/limit.js");
+let t = 1e12, s = { used: 0, last: t, until: 0 };
+for (let i = 0; i < 180; i++) s = step(s, t += 1000, true);
+assert.equal(s.until, t + 5 * 60e3, "3 visible minutes start the block");
+assert.equal(step(s, t + 60e3, true), s, "nothing counts while blocked");
+assert.equal(step(s, s.until + 1, true).used, 0, "block ends with a fresh clock");
+assert.equal(step({ used: 1e5, last: t, until: 0 }, t + 1000, false).used, 1e5, "hidden tab doesn't count");
+assert.equal(step({ used: 1e5, last: t, until: 0 }, t + 6 * 60e3, true).used, 0, "long break resets usage");
+
 console.log("ok");

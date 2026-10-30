@@ -3,6 +3,7 @@ import { getState, setState } from "./src/store.js";
 import { switchTo, toggle, syncLive, refreshBadge } from "./src/switch.js";
 import { autoIdentity } from "./src/identity.js";
 import { fetchUsername } from "./src/username.js";
+import { step } from "./src/limit.js";
 
 // Saved jars are live session tokens: keep storage.local out of reach of content scripts
 // (it's exposed to them by default). intro.js goes through the "intro" message instead.
@@ -23,8 +24,9 @@ const autoLabel = (id, label) => label === id || /^Account \d+$/.test(label);
 const shortcutKeys = async () =>
   (await chrome.commands.getAll()).find(c => c.name === "toggle-account")?.shortcut ?? "";
 
-// The only messages content scripts may send (intro card, feature menu); the rest is popup-only.
-const TAB_MESSAGES = ["intro", "shortcut"];
+// The only messages content scripts may send (intro card, feature menu, transcript, usage limit); the
+// rest is popup-only. The transcription itself goes over a port straight to offscreen.js.
+const TAB_MESSAGES = ["intro", "shortcut", "transcriber", "limit"];
 
 const handlers = {
   switch: ({ id }) => switchTo(id),
@@ -64,6 +66,23 @@ const handlers = {
   },
 
   shortcut: shortcutKeys,
+
+  // Usage-limit clock, ticked about once a second by limit.js in each Instagram tab.
+  // Returns when the current block ends (0 when not blocked).
+  async limit({ visible }) {
+    const { limit = { used: 0, last: 0, until: 0 } } = await chrome.storage.local.get("limit");
+    const s = step(limit, Date.now(), !!visible);
+    if (s !== limit) await chrome.storage.local.set({ limit: s });
+    return s.until;
+  },
+
+  // Opens offscreen.js, which runs speech-to-text for Reels without captions. Runs inside locked(),
+  // so two CC clicks can't both try to create it.
+  async transcriber() {
+    if (await chrome.offscreen.hasDocument()) return;
+    await chrome.offscreen.createDocument({ url: "offscreen.html", reasons: ["WORKERS"],
+      justification: "Transcribes Reels on this computer with a speech-to-text model." });
+  },
 
   async rename({ id, label }) {
     const { accounts } = await getState();
@@ -116,7 +135,7 @@ chrome.runtime.onInstalled.addListener(refreshBadge);
 // Manifest content scripts only reach pages loaded after install, so already-open IG tabs get them here.
 chrome.runtime.onInstalled.addListener(async () => {
   for (const t of await chrome.tabs.query({ url: "https://www.instagram.com/*" })) {
-    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["intro.js", "video.js"] }).catch(() => {});
-    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["keep-playing.js"], world: "MAIN" }).catch(() => {});
+    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["limit.js", "intro.js", "video.js"] }).catch(() => {});
+    chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["keep-playing.js", "story.js"], world: "MAIN" }).catch(() => {});
   }
 });

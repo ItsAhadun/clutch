@@ -43,12 +43,17 @@ export async function switchTo(id) {
   for (const t of tabs) settings.goHome ? chrome.tabs.update(t.id, { url }) : chrome.tabs.reload(t.id);
 }
 
-export async function toggle() {
-  const { accounts, active } = await getState();
+// Where the shortcut goes: the first live account after the active one, wrapping round.
+// The popup marks it "next".
+export function nextId(accounts, active) {
   const ids = Object.keys(accounts);
   const i = ids.indexOf(active);
-  const next = [...ids.slice(i + 1), ...ids.slice(0, i + 1)]
-    .find(id => id !== active && !accounts[id].dead);
+  return [...ids.slice(i + 1), ...ids.slice(0, i + 1)].find(id => id !== active && !accounts[id].dead);
+}
+
+export async function toggle() {
+  const { accounts, active } = await getState();
+  const next = nextId(accounts, active);
   if (next) return switchTo(next);
 }
 
