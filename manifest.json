@@ -65,7 +65,8 @@
         "https://www.instagram.com/*"
       ],
       "js": [
-        "story.js"
+        "story.js",
+        "dm-buttons.js"
       ],
       "world": "MAIN"
     }

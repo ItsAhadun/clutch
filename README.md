@@ -41,6 +41,10 @@ In the editor:
 
 A photo with a song becomes a 15-second video; a video plays the song instead of its own sound (up to 60 seconds). The song is mixed into the video and the card is drawn on it, so it isn't a tappable Instagram music sticker. A video you've edited, or any story with a song, is recorded in real time before it uploads: keep the tab open until it's done. A photo without a song needs no recording. Drawing and other stickers aren't available.
 
+## Buttons on bot DMs
+
+Automated DMs (the "comment and I'll DM you the link" kind) often carry buttons like "Yes, that's me ✅" or "Get the guide". The Instagram app shows them; the website gets them but doesn't draw them when the message is text only. The extension draws them under the message. A link button opens its page in a new tab. A reply button sends its reply through Instagram's own code, the same as tapping it in the app, so the button's text shows up in the chat as your message.
+
 ## Settings
 
 - **Open saved posts after a switch**: on by default. Turn it off to reload the page you're on.
