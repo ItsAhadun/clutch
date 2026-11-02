@@ -132,6 +132,13 @@
   const menu = $(".menu"), corner = $(".corner");
   document.documentElement.append(host);
 
+  // An extension reload leaves the old copy of this script running in open tabs, beside the new one
+  // sw.js injects (the __clutchVideo flag above is per copy). The new copy tells the old one to stand
+  // down: every page listener below is registered with this signal, and the old controls go.
+  document.dispatchEvent(new Event("clutch:video"));
+  const stop = new AbortController(), { signal } = stop;
+  document.addEventListener("clutch:video", () => { stop.abort(); hide(); host.remove(); }, { signal });
+
   // Keep our clicks and keys away from Instagram's document-level listeners.
   for (const t of ["click", "dblclick", "pointerdown", "pointerup", "mousedown", "mouseup", "keydown"])
     host.addEventListener(t, e => e.stopPropagation());
@@ -213,12 +220,12 @@
     const v = BAR.some(on) && players().find(v => under(v, px, py) && !blocked(v));
     if (v && v !== cur) show(v);
     else if (!v && cur) hide();
-  }, { passive: true });
-  document.addEventListener("scroll", hide, { capture: true, passive: true });
-  document.documentElement.addEventListener("mouseleave", () => dragging || hide());
+  }, { passive: true, signal });
+  document.addEventListener("scroll", hide, { capture: true, passive: true, signal });
+  document.documentElement.addEventListener("mouseleave", () => dragging || hide(), { signal });
 
   bar.addEventListener("pointerdown", () => { dragging = true; });
-  document.addEventListener("pointerup", () => { dragging = false; }, true);
+  document.addEventListener("pointerup", () => { dragging = false; }, { capture: true, signal });
 
   seek.oninput = () => {
     if (!cur || !isFinite(cur.duration)) return;
@@ -238,15 +245,15 @@
   chrome.storage.sync.get({ volume: null, muted: true }).then(s => ({ volume, muted } = s));
   document.addEventListener("play", e => {
     if (volume !== null && e.target instanceof HTMLVideoElement) e.target.volume = volume;
-  }, true);
+  }, { capture: true, signal });
   // Remember sound changes however the user made them: Instagram's audio button, our bar and keys,
   // clicking the video, or the native controls in fullscreen. Instagram also mutes videos by itself
   // (every fresh page, every video it sets up), so only count a change on a video that has already
   // played a moment, made during or just after a click or key press.
   let inputAt = 0, pressed = false, saveAt;
-  addEventListener("pointerdown", () => { pressed = true; inputAt = Date.now(); }, true);
-  addEventListener("pointerup", () => { pressed = false; inputAt = Date.now(); }, true);
-  addEventListener("keydown", () => { inputAt = Date.now(); }, true);
+  addEventListener("pointerdown", () => { pressed = true; inputAt = Date.now(); }, { capture: true, signal });
+  addEventListener("pointerup", () => { pressed = false; inputAt = Date.now(); }, { capture: true, signal });
+  addEventListener("keydown", () => { inputAt = Date.now(); }, { capture: true, signal });
   document.addEventListener("volumechange", e => {
     const v = e.target;
     if (!(v instanceof HTMLVideoElement) || v.currentTime < 0.3) return;
@@ -255,7 +262,7 @@
     if (!muted) volume = v.volume;
     clearTimeout(saveAt); // sync allows ~2 writes/s, so save once the changes settle
     saveAt = setTimeout(() => chrome.storage.sync.set(muted ? { muted } : { muted, volume }), 600);
-  }, true);
+  }, { capture: true, signal });
   let toggledAt = 0;
   vol.oninput = () => {
     if (!cur) return;
@@ -281,8 +288,8 @@
     if (b) { toggledAt = Date.now(); b.click(); }
   }
   const restoreSoon = () => setTimeout(restoreSound, 300); // after Instagram applies its own state
-  document.addEventListener("play", restoreSoon, true);
-  for (const t of ["pointerdown", "keydown"]) addEventListener(t, restoreSoon, { capture: true, once: true });
+  document.addEventListener("play", restoreSoon, { capture: true, signal });
+  for (const t of ["pointerdown", "keydown"]) addEventListener(t, restoreSoon, { capture: true, once: true, signal });
   // defaultPlaybackRate too, so the speed survives Instagram reloading the source.
   speed.onchange = () => { if (cur) cur.playbackRate = cur.defaultPlaybackRate = +speed.value; };
   // The bar can't follow into fullscreen (only the video is shown), so hand over to native controls there.
@@ -294,7 +301,7 @@
     v.controls = v === document.fullscreenElement;
     if (v.controls) v.style.setProperty("object-fit", "contain", "important");
     else v.style.removeProperty("object-fit");
-  });
+  }, { signal });
 
   // ---- Auto-scroll Reels ----
   let advancedAt = 0;
@@ -313,7 +320,7 @@
     scrollBy({ top, behavior: "smooth" });
   }
   // Media events don't bubble, but they still pass through document on the capture phase.
-  document.addEventListener("ended", e => e.target instanceof HTMLVideoElement && nextReel(e.target), true);
+  document.addEventListener("ended", e => e.target instanceof HTMLVideoElement && nextReel(e.target), { capture: true, signal });
   // Instagram loops Reels instead of letting them end, so also watch for the jump back to the start.
   document.addEventListener("timeupdate", e => {
     const v = e.target;
@@ -321,7 +328,7 @@
     const prev = lastTime.get(v) ?? 0;
     lastTime.set(v, v.currentTime);
     if (v.currentTime < prev && prev > v.duration - 1.5) nextReel(v);
-  }, true);
+  }, { capture: true, signal });
 
   // ---- Transcript ----
   // Instagram's own auto-captions when the Reel has them (only a few do), else speech-to-text on
@@ -479,6 +486,8 @@
 
   const KEYS = ["f", "m", " ", "arrowleft", "arrowright", "arrowup", "arrowdown"];
   addEventListener("keydown", e => {
+    // Typing in story.js's editor. It's in a closed shadow root, so the target is only its host.
+    if (e.composedPath()[0].closest?.("[data-clutch-editor]")) return;
     if (e.key === "Escape" && (!menu.hidden || !tx.hidden)) {
       menu.hidden ? closeTx() : (menu.hidden = true);
       return e.stopPropagation(); // or Instagram closes the story or post underneath too
@@ -529,7 +538,7 @@
     }
     e.preventDefault();
     e.stopPropagation();
-  }, true);
+  }, { capture: true, signal });
 
   // ---- Settings ----
   function apply(videoOff) {

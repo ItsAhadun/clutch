@@ -4,7 +4,16 @@
   if (window.__clutchLimit) return;
   window.__clutchLimit = true;
 
-  let host, time;
+  let host, time, blocked = false;
+
+  // While blocked, keys reach nothing behind the cover: not Instagram, not video.js's shortcuts, not a
+  // focused text box. This runs at document_start, so its window listener is ahead of theirs.
+  // Browser shortcuts (Ctrl/Alt combos, F-keys) still do their usual thing.
+  addEventListener("keydown", e => {
+    if (!blocked) return;
+    e.stopImmediatePropagation();
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && !/^F\d+$/.test(e.key)) e.preventDefault();
+  }, true);
 
   function show(ms) {
     if (!host) {
@@ -39,16 +48,22 @@
     document.querySelectorAll("video, audio").forEach(m => m.pause());
   }
 
+  // DMs and the saved page don't use up the clock (they're still covered while blocked).
+  const exempt = () => /^\/(direct|[^/]+\/saved)(\/|$)/.test(location.pathname);
+
   async function tick() {
     let until;
     try {
-      until = (await chrome.runtime.sendMessage({ type: "limit", visible: document.visibilityState === "visible" }))?.result;
+      const visible = document.visibilityState === "visible" && !exempt();
+      until = (await chrome.runtime.sendMessage({ type: "limit", visible }))?.result;
     } catch { // extension reloaded: the fresh copy sw.js injects takes over
       clearInterval(timer);
+      blocked = false;
       return host?.remove();
     }
     const left = until - Date.now();
-    left > 0 ? show(left) : host?.remove();
+    blocked = left > 0;
+    blocked ? show(left) : host?.remove();
   }
 
   const timer = setInterval(tick, 1000);

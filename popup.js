@@ -106,7 +106,8 @@ for (const el of [$("#goHome"), $("#clearStorage")]) {
 // Chromium has no API to set a shortcut from the extension, so send the user to the browser's page.
 $("#shortcut").onclick = () => chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 
-chrome.storage.onChanged.addListener(render);
+// Only what the popup shows: the usage-limit clock writes every second and would wipe a rename mid-typing.
+chrome.storage.onChanged.addListener(c => { if (c.accounts || c.active || c.settings || c.videoOff) render(); });
 render();
 send({ type: "fixNames" });
 // "Alt+Shift+S" on Windows and Linux, "⇧⌥S" on macOS: one key cap each.

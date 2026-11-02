@@ -9,14 +9,20 @@ import { step } from "./src/limit.js";
 // (it's exposed to them by default). intro.js goes through the "intro" message instead.
 chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }).catch(console.error);
 
+// Runs its jobs one at a time, in order.
+function queue() {
+  let chain = Promise.resolve();
+  return fn => {
+    const run = chain.then(fn);
+    chain = run.catch(() => {});
+    return run;
+  };
+}
 // Every accounts/active read-modify-write runs through this queue, so the
 // onChanged sync can never interleave with a switch half-way through.
-let chain = Promise.resolve();
-function locked(fn) {
-  const run = chain.then(fn);
-  chain = run.catch(() => {});
-  return run;
-}
+const locked = queue();
+// The usage-limit clock has its own, so it never waits behind a slow switch.
+const ticks = queue();
 
 // Labels the extension filled in itself, which a fetched username should replace.
 const autoLabel = (id, label) => label === id || /^Account \d+$/.test(label);
@@ -111,7 +117,8 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   if (sender.tab && !TAB_MESSAGES.includes(msg.type)) return false;
   (async () => {
     try {
-      respond({ ok: true, result: await locked(() => handlers[msg.type](msg)) });
+      const q = msg.type === "limit" ? ticks : locked;
+      respond({ ok: true, result: await q(() => handlers[msg.type](msg)) });
     } catch (e) {
       respond({ ok: false, error: e.message });
     }

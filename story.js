@@ -45,6 +45,7 @@
 
   const host = document.createElement("div");
   host.style.cssText = "position:absolute;left:9px;top:8px;z-index:1";
+  host.setAttribute("data-clutch-editor", ""); // video.js leaves keys typed in here alone
   const root = host.attachShadow({ mode: "closed" });
   // Sizes, font and colors measured off Instagram's own bubbles and story editor; the colors are its theme variables.
   root.innerHTML = `
@@ -174,7 +175,8 @@
   const startIn = $(".start"), when = $(".when");
   const mode = m => { stage.dataset.mode = m; };
   new ResizeObserver(() => { world.style.scale = stage.clientWidth / W; }).observe(stage);
-  // Typing here must not reach video.js's or Instagram's shortcuts; they can't see into this closed shadow root.
+  // Typing here must not reach Instagram's shortcuts. video.js's run first (a window capture listener),
+  // so it skips anything from inside the data-clutch-editor host instead.
   for (const t of ["keydown", "keyup", "keypress"]) dialog.addEventListener(t, e => e.stopPropagation());
 
   bubble.onclick = () => picker.click();
